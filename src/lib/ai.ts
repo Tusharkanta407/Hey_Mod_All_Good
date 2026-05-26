@@ -7,8 +7,11 @@ const GEMINI_MODEL = 'gemini-2.5-flash';
 export async function getGeminiApiKey(): Promise<string | undefined> {
   const fromEnv = process.env.GEMINI_API_KEY?.trim();
   if (fromEnv) return fromEnv;
+
   const fromSettings = await settings.get<string>('geminiApiKey');
-  return fromSettings?.trim() || undefined;
+  if (fromSettings?.trim()) return fromSettings.trim();
+
+  return undefined;
 }
 
 type GeminiResponse = {

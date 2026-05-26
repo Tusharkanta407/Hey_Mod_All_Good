@@ -1,0 +1,24 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans:wght@400;500;600;700&display=swap");
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "IBM Plex Sans", "Noto Sans", ui-sans-serif, system-ui, sans-serif;
+  --color-reddit-orange: #FF4500;
+  --color-reddit-blue: #00a6a5;
+  --color-reddit-bg: #030303;
+  --color-mod-safe-bg: #030303;
+  --color-mod-safe-text: #00a6a5;
+  --color-mod-tense-bg: #030303;
+  --color-mod-tense-text: #ffd5ad;
+  --color-mod-harmful-bg: #030303;
+  --color-mod-harmful-text: #ea8282;
+  --color-reddit-card: #1A1A1B;
+  --color-reddit-text: #D7DADC;
+  --color-reddit-text-muted: #818384;
+  --color-reddit-border: #343536;
+}
+
+body {
+  background-color: var(--color-reddit-bg);
+  color: var(--color-reddit-text);
+}

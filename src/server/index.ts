@@ -1,9 +1,13 @@
+import { loadLocalEnv } from '../lib/loadEnv';
+
+loadLocalEnv();
+
 import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
 import { createServer, getServerPort } from '@devvit/web/server';
-import { api } from './routes/api';
-import { menu } from './routes/menu';
-import { triggers } from './routes/triggers';
+import { api } from '../routes/api';
+import { menu } from '../routes/menu';
+import { triggers } from '../routes/triggers';
 
 const app = new Hono();
 const internal = new Hono();

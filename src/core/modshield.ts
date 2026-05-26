@@ -8,11 +8,13 @@ import {
   moderateContent,
 } from '../lib/ai';
 import { redisKeys, todayKey } from '../lib/redisKeys';
+import { normalizePostId, trimRecentZSet } from '../lib/redisQueue';
 import type {
   ModmailShieldResult,
   PostShieldResult,
   ShieldMode,
   ShieldPriority,
+  InterceptMode,
 } from '../lib/types';
 
 async function bumpStats(flagged: boolean): Promise<void> {
@@ -49,6 +51,7 @@ export async function handlePostCreate(
     return;
   }
 
+  const postId = normalizePostId(post.id);
   const title = post.title ?? '';
   const body = post.selftext ?? '';
   const text = `${title}\n${body}`.trim();
@@ -94,19 +97,55 @@ export async function handlePostCreate(
     priority = 'review';
   }
 
+  const interceptMode =
+    (await settings.get<InterceptMode>('interceptMode')) ?? 'audit';
+  let intercepted = false;
+
+  if (interceptMode === 'intercept' && priority === 'critical' && confidence >= 70) {
+    try {
+      const postFullId = (
+        post.id.startsWith('t3_') ? post.id : `t3_${post.id}`
+      ) as `t3_${string}`;
+      await reddit.remove(postFullId, false);
+      intercepted = true;
+      console.log(`ModShield intercepted and removed critical post ${post.id}`);
+    } catch (err) {
+      console.error('Failed to auto-remove post:', err);
+    }
+  }
+
+  if (priority !== 'low' || intercepted) {
+    flagged = true;
+  }
+
   const result: PostShieldResult = {
-    postId: post.id,
+    postId,
+    title,
     category,
     priority,
     confidence,
     summary,
     flagged,
+    intercepted,
+    handled: false,
     at: Date.now(),
   };
+  if (imageUrl) result.imageUrl = imageUrl;
+  if (body.trim()) result.originalContent = body.trim().slice(0, 4000);
 
-  await redis.set(redisKeys.post(post.id), JSON.stringify(result));
+  await redis.set(redisKeys.post(postId), JSON.stringify(result));
+
+  if (flagged || priority !== 'low' || intercepted) {
+    await redis.zAdd(redisKeys.recentPosts, {
+      score: Date.now(),
+      member: postId,
+    });
+    await trimRecentZSet(redisKeys.recentPosts);
+    console.log(`ModShield queued post ${postId} for Protected Review`);
+  }
+
   await bumpStats(flagged);
-  console.log(`ModShield post ${post.id}: ${priority} — ${summary}`);
+  console.log(`ModShield post ${postId}: ${priority} — ${summary}`);
 }
 
 export async function handleModMail(event: OnModMailRequest): Promise<void> {
@@ -175,12 +214,35 @@ export async function handleModMail(event: OnModMailRequest): Promise<void> {
     }
   }
 
+  const mode = (await settings.get<ShieldMode>('shieldMode')) ?? 'escalate_only';
+  const interceptMode =
+    (await settings.get<InterceptMode>('interceptMode')) ?? 'audit';
+  let intercepted = false;
+
+  if (interceptMode === 'intercept' && priority === 'critical' && local.riskScore >= 45) {
+    try {
+      await reddit.modMail.archiveConversation(conversationId);
+      await reddit.modMail.reply({
+        conversationId,
+        body: `ModShield intercepted: ${summary}\n\n[Thread archived — open Protected Review Quarantine to handle safely.]`,
+        isInternal: true,
+      });
+      intercepted = true;
+      console.log(`ModShield intercepted and archived modmail ${conversationId}`);
+    } catch (err) {
+      console.error('Failed to auto-archive modmail:', err);
+    }
+  }
+
   const stored: ModmailShieldResult = {
     conversationId,
     summary,
     tags: local.tags,
     priority,
     localRiskScore: local.riskScore,
+    intercepted,
+    originalContent: body,
+    handled: false,
     at: Date.now(),
     ...(intent !== undefined && { intent }),
     ...(tone !== undefined && { tone }),
@@ -189,9 +251,17 @@ export async function handleModMail(event: OnModMailRequest): Promise<void> {
   };
 
   await redis.set(redisKeys.mail(conversationId), JSON.stringify(stored));
+
+  if (local.riskScore >= 20 || priority !== 'low' || intercepted) {
+    await redis.zAdd(redisKeys.recentMail, {
+      score: Date.now(),
+      member: conversationId,
+    });
+    await trimRecentZSet(redisKeys.recentMail);
+  }
+
   await bumpStats(local.riskScore >= 20);
 
-  const mode = (await settings.get<ShieldMode>('shieldMode')) ?? 'escalate_only';
   if (
     mode === 'full_auto' &&
     action === 'auto_reply' &&

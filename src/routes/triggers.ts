@@ -6,12 +6,22 @@ import type {
   TriggerResponse,
 } from '@devvit/web/shared';
 import { handleModMail, handlePostCreate } from '../core/modshield';
+import { ensureQuarantinePost } from '../core/quarantine';
 
 export const triggers = new Hono();
 
 triggers.post('/on-app-install', async (c) => {
   const input = await c.req.json<OnAppInstallRequest>();
-  console.log('ModShield installed on r/' + input.subreddit?.name);
+  const subName = input.subreddit?.name;
+  console.log('ModShield installed on r/' + subName);
+
+  if (subName) {
+    const postId = await ensureQuarantinePost(subName);
+    if (postId) {
+      console.log(`Quarantine dashboard post created: ${postId}`);
+    }
+  }
+
   return c.json<TriggerResponse>({ status: 'success' }, 200);
 });
 
