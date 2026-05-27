@@ -59,7 +59,7 @@ export async function handleModMail(event: OnModMailRequest): Promise<void> {
     return;
   }
 
-  let body = '';
+  let body: string | undefined;
   try {
     const conv = await reddit.modMail.getConversation({
       conversationId,
@@ -71,13 +71,13 @@ export async function handleModMail(event: OnModMailRequest): Promise<void> {
     const message =
       conv.conversation?.messages?.[msgKey] ??
       Object.values(conv.conversation?.messages ?? {}).at(-1);
-    body = message?.body ?? '';
+    body = message?.body;
   } catch (err) {
     console.error('ModMail getConversation error:', err);
     return;
   }
 
-  if (!body.trim()) {
+  if (!body?.trim()) {
     console.warn('ModMail: empty message body');
     return;
   }

@@ -34,7 +34,6 @@ export async function ensureQuarantinePost(
       styles: {
         backgroundColor: '#000000FF',
         backgroundColorDark: '#000000FF',
-        height: 'TALL',
       },
     });
 

@@ -7,10 +7,11 @@
   "scripts": {
     "build": "vite build",
     "deploy": "npm run type-check && npm run lint && devvit upload",
-    "dev": "devvit playtest",
+    "dev": "node --max-old-space-size=4096 ./node_modules/devvit/bin/devvit.js playtest",
+    "dev:8gb": "node --max-old-space-size=8192 ./node_modules/devvit/bin/devvit.js playtest",
     "setup:secrets": "node scripts/sync-gemini-secret.mjs",
     "launch": "npm run deploy && devvit publish",
-    "lint": "eslint 'src/**/*.{ts,tsx}'",
+    "lint": "eslint \"src/**/*.{ts,tsx}\"",
     "login": "devvit login",
     "prettier": "prettier --write .",
     "type-check": "tsc --build"
