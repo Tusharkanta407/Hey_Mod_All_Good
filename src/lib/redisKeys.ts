@@ -9,6 +9,7 @@ export const redisKeys = {
   recentPosts: 'shield:posts:recent',
   recentMail: 'shield:mail:recent',
   dashboardPostId: 'shield:dashboard:postId',
+  dashboardBrandVersion: 'shield:dashboard:brandVersion',
 } as const;
 
 export function todayKey(): string {

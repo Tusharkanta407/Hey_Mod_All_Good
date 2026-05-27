@@ -43,7 +43,7 @@ menu.post('/open-quarantine', async (c) => {
   }
 
   return c.json<UiResponse>(
-    { showToast: 'Failed to open Protected Review Quarantine.' },
+    { showToast: 'Failed to open Protected Review.' },
     200
   );
 });

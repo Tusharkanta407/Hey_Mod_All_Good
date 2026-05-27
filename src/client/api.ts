@@ -52,12 +52,26 @@ function toModerationItem(dto: QueueItemDto): ModerationItem {
   return item;
 }
 
+export class ApiForbiddenError extends Error {
+  constructor() {
+    super('forbidden');
+    this.name = 'ApiForbiddenError';
+  }
+}
+
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, init);
+  if (res.status === 403) {
+    throw new ApiForbiddenError();
+  }
   if (!res.ok) {
     throw new Error(`API ${path} failed: ${res.status}`);
   }
   return res.json() as Promise<T>;
+}
+
+export async function fetchAccess(): Promise<{ allowed: boolean }> {
+  return fetchJson<{ allowed: boolean }>('/api/shield/access');
 }
 
 /** Loads recentPosts + recentMail from Redis via server */
@@ -84,10 +98,21 @@ export async function fetchStats(): Promise<ShieldStats> {
   return fetchJson<ShieldStats>('/api/shield/stats');
 }
 
-export async function markItemHandled(id: string): Promise<void> {
-  await fetchJson<{ ok: boolean }>('/api/shield/handled', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id }),
-  });
+export type ModerationAction = 'approve' | 'remove';
+
+export async function applyModerationAction(
+  id: string,
+  action: ModerationAction
+): Promise<void> {
+  const data = await fetchJson<{ ok: boolean; error?: string }>(
+    '/api/shield/action',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, action }),
+    }
+  );
+  if (!data.ok) {
+    throw new Error(data.error ?? 'Moderation action failed');
+  }
 }

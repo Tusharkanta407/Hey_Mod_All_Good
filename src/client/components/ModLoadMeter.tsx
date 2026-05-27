@@ -1,14 +1,13 @@
-import { motion } from 'motion/react';
 import {
   Activity,
-  MoreHorizontal,
   Shield,
   TrendingUp,
-  MessageSquare,
+  MessageCircle,
   Share,
   Bookmark,
-  ArrowUp,
-  ArrowDown,
+  MoreHorizontal,
+  ArrowBigUp,
+  ArrowBigDown,
 } from 'lucide-react';
 import type { ShieldStats } from '../api';
 
@@ -16,6 +15,12 @@ type ModLoadMeterProps = {
   stats: ShieldStats | null;
   pending: number;
 };
+
+const TOKENS = [
+  { key: 'calm', label: 'Calm' as const },
+  { key: 'tense', label: 'Tense' as const },
+  { key: 'harmful', label: 'Harmful' as const },
+] as const;
 
 export default function ModLoadMeter({ stats, pending }: ModLoadMeterProps) {
   const calm = stats?.calm ?? 0;
@@ -28,130 +33,134 @@ export default function ModLoadMeter({ stats, pending }: ModLoadMeterProps) {
   const harmfulPct = Math.round((harmful / total) * 100);
 
   const healthLabel =
-    harmful > 2 ? 'Elevated load' : harmful > 0 ? 'Manageable' : 'Overall Healthy';
-  const trendLabel =
-    harmful > tense ? 'Watch harmful queue' : tense > calm ? 'Some tension' : 'Mostly Calm';
+    harmful > 2 ? 'Elevated load' : harmful > 0 ? 'Manageable' : 'Overall healthy';
+
+  const voteDisplay = stats ? `${stats.screened ?? 0}` : '—';
 
   return (
-    <div className="bg-reddit-card border border-reddit-border rounded-xl p-4 sm:p-5 mb-6 shadow-xl text-reddit-text font-sans">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-full bg-mod-harmful-text/20 border border-mod-harmful-text/30 flex items-center justify-center text-mod-harmful-text">
-            <Shield className="w-3.5 h-3.5" />
-          </div>
-          <div className="text-xs text-reddit-text-muted">
-            <span className="font-bold text-reddit-text">ModShield</span> • live •{' '}
-            {pending} pending
-          </div>
+    <article className="border border-reddit-border rounded-2xl bg-reddit-card overflow-hidden mb-6">
+      <header className="flex items-center gap-2 px-4 pt-3 pb-2 text-sm">
+        <div className="h-8 w-8 rounded-full bg-reddit-orange/15 flex items-center justify-center">
+          <Shield className="h-4 w-4 text-reddit-orange" />
         </div>
-        <button type="button" className="text-reddit-text-muted hover:text-reddit-text">
-          <MoreHorizontal className="w-5 h-5" />
+        <div className="flex items-baseline gap-1.5 flex-wrap">
+          <span className="font-semibold text-white">r/ModTools</span>
+          <span className="text-reddit-text-muted text-xs">•</span>
+          <span className="text-reddit-text-muted text-xs">
+            u/auto-mod · {stats ? '5m' : '—'}
+          </span>
+        </div>
+        <button className="ml-auto p-1.5 rounded-full hover:bg-reddit-elevated text-reddit-text-muted">
+          <MoreHorizontal className="h-4 w-4" />
         </button>
+      </header>
+
+      <div className="px-4 pb-3">
+        <div className="flex items-center gap-2 text-[11px] font-medium text-reddit-text-muted uppercase tracking-wide mb-2">
+          <Activity className="h-3.5 w-3.5" />
+          Moderator emotional load
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <h2 className="text-xl font-bold text-white leading-tight">
+            {healthLabel}
+          </h2>
+          <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-white/10 text-white">
+            <TrendingUp className="h-3 w-3" />
+            Mostly calm
+          </span>
+        </div>
+        <p className="text-xs text-reddit-text-muted mt-1">
+          {pending} item{pending === 1 ? '' : 's'} awaiting protected review
+        </p>
       </div>
 
-      <div className="mb-4">
-        <div className="flex items-center gap-1.5 mb-1.5">
-          <Activity className="w-3.5 h-3.5 text-reddit-text-muted" />
-          <h3 className="text-[11px] font-medium text-reddit-text-muted uppercase tracking-wider">
-            Moderator Emotional Load
-          </h3>
-        </div>
-        <div className="flex items-center gap-3">
-          <h2 className="text-2xl font-bold">{healthLabel}</h2>
-          <div className="flex items-center gap-1 text-[11px] font-bold text-mod-safe-text bg-mod-safe-text/10 px-2.5 py-0.5 rounded-full">
-            <TrendingUp className="w-3.5 h-3.5" /> {trendLabel}
-          </div>
-        </div>
-      </div>
-
-      <div className="flex w-full h-3.5 rounded-full overflow-hidden mb-6 bg-reddit-bg">
-        <motion.div
-          initial={{ width: 0 }}
-          animate={{ width: `${calmPct}%` }}
-          transition={{ duration: 1, ease: 'easeOut' }}
-          className="bg-mod-safe-text h-full"
-        />
-        <motion.div
-          initial={{ width: 0 }}
-          animate={{ width: `${tensePct}%` }}
-          transition={{ duration: 1, ease: 'easeOut', delay: 0.2 }}
-          className="bg-mod-tense-text h-full"
-        />
-        <motion.div
-          initial={{ width: 0 }}
-          animate={{ width: `${harmfulPct}%` }}
-          transition={{ duration: 1, ease: 'easeOut', delay: 0.4 }}
-          className="bg-mod-harmful-text h-full"
-        />
-      </div>
-
-      <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-5">
-        <div className="bg-reddit-bg/30 border border-reddit-border rounded-xl p-3.5 flex flex-col items-start justify-between h-[96px]">
-          <div className="flex w-full justify-between items-center mb-1">
-            <span className="text-[11px] uppercase font-bold text-reddit-text-muted tracking-wide">
-              Calm
-            </span>
-            <div className="w-1.5 h-1.5 rounded-full bg-mod-safe-text"></div>
-          </div>
-          <div className="w-full flex items-end justify-between mt-auto">
-            <span className="text-3xl font-bold text-reddit-text leading-none">{calm}</span>
-            <span className="text-xs text-mod-safe-text font-medium mb-0.5">{calmPct}%</span>
-          </div>
-        </div>
-
-        <div className="bg-reddit-bg/30 border border-reddit-border rounded-xl p-3.5 flex flex-col items-start justify-between h-[96px]">
-          <div className="flex w-full justify-between items-center mb-1">
-            <span className="text-[11px] uppercase font-bold text-reddit-text-muted tracking-wide">
-              Tense
-            </span>
-            <div className="w-1.5 h-1.5 rounded-full bg-mod-tense-text"></div>
-          </div>
-          <div className="w-full flex items-end justify-between mt-auto">
-            <span className="text-3xl font-bold text-reddit-text leading-none">{tense}</span>
-            <span className="text-xs text-mod-tense-text font-medium mb-0.5">{tensePct}%</span>
-          </div>
-        </div>
-
-        <div className="bg-reddit-bg/30 border border-reddit-border rounded-xl p-3.5 flex flex-col items-start justify-between h-[96px]">
-          <div className="flex w-full justify-between items-center mb-1">
-            <span className="text-[11px] uppercase font-bold text-reddit-text-muted tracking-wide">
-              Harmful
-            </span>
-            <div className="w-1.5 h-1.5 rounded-full bg-mod-harmful-text animate-pulse"></div>
-          </div>
-          <div className="w-full flex items-end justify-between mt-auto">
-            <span className="text-3xl font-bold text-reddit-text leading-none">{harmful}</span>
-            <span className="text-xs text-mod-harmful-text font-medium mb-0.5">
-              {harmfulPct}%
-            </span>
-          </div>
+      <div className="px-4 pb-4">
+        <div className="flex h-2.5 w-full rounded-full overflow-hidden bg-black border border-reddit-border">
+          <div
+            className="bg-[#46d160]"
+            style={{ width: `${calmPct}%` }}
+          />
+          <div
+            className="bg-[#ffb000]"
+            style={{ width: `${tensePct}%` }}
+          />
+          <div
+            className="bg-[#ff4500]"
+            style={{ width: `${harmfulPct}%` }}
+          />
         </div>
       </div>
 
-      <div className="flex items-center text-reddit-text-muted text-xs font-bold pt-1 gap-2 sm:gap-4">
-        <div className="flex items-center gap-1.5 bg-reddit-bg hover:bg-[#222] px-3 py-1.5 rounded-full transition-colors">
-          <ArrowUp className="w-4 h-4" />
-          <span className="text-reddit-text">{stats?.safe ?? 0}</span>
-          <span className="text-[10px] font-normal opacity-60">safe</span>
-          <ArrowDown className="w-4 h-4" />
-        </div>
-
-        <div className="flex items-center gap-2 hover:bg-[#222] px-3 py-1.5 rounded-full cursor-pointer transition-colors">
-          <MessageSquare className="w-4 h-4" />
-          <span>{pending}</span>
-        </div>
-
-        <div className="flex items-center gap-2 hover:bg-[#222] px-3 py-1.5 rounded-full cursor-pointer transition-colors">
-          <Share className="w-4 h-4" />
-          <span>Share</span>
-        </div>
-
-        <div className="flex-1 flex justify-end">
-          <div className="hover:bg-[#222] p-1.5 rounded cursor-pointer transition-colors">
-            <Bookmark className="w-5 h-5" />
-          </div>
-        </div>
+      <div className="px-4 pb-4 grid grid-cols-3 gap-2">
+        {TOKENS.map((token) => {
+          const value =
+            token.key === 'calm' ? calm : token.key === 'tense' ? tense : harmful;
+          const pct =
+            token.key === 'calm'
+              ? calmPct
+              : token.key === 'tense'
+                ? tensePct
+                : harmfulPct;
+          const color =
+            token.key === 'calm'
+              ? '#46d160'
+              : token.key === 'tense'
+                ? '#ffb000'
+                : '#ff4500';
+          return (
+            <div
+              key={token.key}
+              className="rounded-xl border border-reddit-border bg-black/60 p-3"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-reddit-text-muted">
+                  {token.label}
+                </span>
+                <span
+                  className="h-2 w-2 rounded-full"
+                  style={{ backgroundColor: color }}
+                />
+              </div>
+              <div className="flex items-baseline justify-between">
+                <span className="text-2xl font-bold text-white tabular-nums">
+                  {value}
+                </span>
+                <span
+                  className="text-xs font-semibold tabular-nums"
+                  style={{ color }}
+                >
+                  {pct}%
+                </span>
+              </div>
+            </div>
+          );
+        })}
       </div>
-    </div>
+
+      <footer className="flex items-center gap-1 px-2 pb-2 text-reddit-text-muted">
+        <div className="flex items-center bg-reddit-elevated rounded-full">
+          <button className="p-2 rounded-full hover:text-white transition-colors">
+            <ArrowBigUp className="h-5 w-5" />
+          </button>
+          <span className="text-sm font-semibold text-white tabular-nums px-1">
+            {voteDisplay}
+          </span>
+          <button className="p-2 rounded-full hover:text-white transition-colors">
+            <ArrowBigDown className="h-5 w-5" />
+          </button>
+        </div>
+        <button className="flex items-center gap-1.5 px-3 py-2 rounded-full hover:bg-reddit-elevated text-xs sm:text-sm font-medium">
+          <MessageCircle className="h-4 w-4" />
+          84
+        </button>
+        <button className="flex items-center gap-1.5 px-3 py-2 rounded-full hover:bg-reddit-elevated text-xs sm:text-sm font-medium">
+          <Share className="h-4 w-4" />
+          Share
+        </button>
+        <button className="flex items-center gap-1.5 px-3 py-2 rounded-full hover:bg-reddit-elevated text-xs sm:text-sm font-medium ml-auto">
+          <Bookmark className="h-4 w-4" />
+        </button>
+      </footer>
+    </article>
   );
 }

@@ -1,24 +1,30 @@
-@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "IBM Plex Sans", "Noto Sans", ui-sans-serif, system-ui, sans-serif;
-  --color-reddit-orange: #FF4500;
-  --color-reddit-blue: #00a6a5;
-  --color-reddit-bg: #030303;
-  --color-mod-safe-bg: #030303;
-  --color-mod-safe-text: #00a6a5;
-  --color-mod-tense-bg: #030303;
-  --color-mod-tense-text: #ffd5ad;
-  --color-mod-harmful-bg: #030303;
-  --color-mod-harmful-text: #ea8282;
-  --color-reddit-card: #1A1A1B;
-  --color-reddit-text: #D7DADC;
-  --color-reddit-text-muted: #818384;
-  --color-reddit-border: #343536;
+  --font-sans: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --color-reddit-orange: #ff4500;
+  --color-reddit-upvote: #d93a00;
+  --color-reddit-downvote: #6a5cff;
+  --color-reddit-bg: #000000;
+  --color-reddit-card: #0a0a0a;
+  --color-reddit-elevated: #141414;
+  --color-reddit-text: #ffffff;
+  --color-reddit-text-muted: #8a8a8a;
+  --color-reddit-border: #2e2e2e;
+  --color-reddit-border-hover: #454545;
+  --color-reddit-calm: #46d160;
+  --color-reddit-tense: #ffb000;
+  --color-reddit-harmful: #ff4500;
+  --color-reddit-approve-bg: rgba(70, 209, 96, 0.12);
+  --color-reddit-danger-bg: rgba(255, 69, 0, 0.12);
+  --color-mod-safe-text: #46d160;
+  --color-mod-tense-text: #ffb000;
+  --color-mod-harmful-text: #ff4500;
 }
 
 body {
   background-color: var(--color-reddit-bg);
   color: var(--color-reddit-text);
+  -webkit-font-smoothing: antialiased;
 }

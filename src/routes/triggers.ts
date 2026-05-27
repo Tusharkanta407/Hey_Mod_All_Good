@@ -1,36 +1,48 @@
 import { Hono } from 'hono';
 import type {
   OnAppInstallRequest,
+  OnAutomoderatorFilterPostRequest,
   OnModMailRequest,
-  OnPostCreateRequest,
+  OnPostReportRequest,
   TriggerResponse,
 } from '@devvit/web/shared';
-import { handleModMail, handlePostCreate } from '../core/modshield';
-import { ensureQuarantinePost } from '../core/quarantine';
+import {
+  handleAutomoderatorFilterPost,
+  handleModMail,
+  handlePostReport,
+} from '../core/modshield';
+import { BRAND } from '../lib/brand';
 
 export const triggers = new Hono();
 
 triggers.post('/on-app-install', async (c) => {
   const input = await c.req.json<OnAppInstallRequest>();
   const subName = input.subreddit?.name;
-  console.log('ModShield installed on r/' + subName);
-
-  if (subName) {
-    const postId = await ensureQuarantinePost(subName);
-    if (postId) {
-      console.log(`Quarantine dashboard post created: ${postId}`);
-    }
-  }
+  console.log(
+    'ModShield installed on r/' +
+      subName +
+      ` — mods: use Mod tools → ${BRAND.menuAction}`
+  );
 
   return c.json<TriggerResponse>({ status: 'success' }, 200);
 });
 
-triggers.post('/post-create', async (c) => {
-  const event = await c.req.json<OnPostCreateRequest>();
+triggers.post('/post-report', async (c) => {
+  const event = await c.req.json<OnPostReportRequest>();
   try {
-    await handlePostCreate(event);
+    await handlePostReport(event);
   } catch (err) {
-    console.error('post-create trigger error:', err);
+    console.error('post-report trigger error:', err);
+  }
+  return c.json<TriggerResponse>({ status: 'success' }, 200);
+});
+
+triggers.post('/automod-filter-post', async (c) => {
+  const event = await c.req.json<OnAutomoderatorFilterPostRequest>();
+  try {
+    await handleAutomoderatorFilterPost(event);
+  } catch (err) {
+    console.error('automod-filter-post trigger error:', err);
   }
   return c.json<TriggerResponse>({ status: 'success' }, 200);
 });

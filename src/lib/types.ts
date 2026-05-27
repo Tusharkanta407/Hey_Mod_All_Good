@@ -23,6 +23,8 @@ export type PostShieldResult = {
   flagged: boolean;
   intercepted?: boolean;
   handled?: boolean;
+  scanSource?: 'report' | 'modqueue' | 'automod';
+  reportReason?: string;
   at: number;
 };
 

@@ -1,19 +1,22 @@
 import { reddit, redis, settings } from '@devvit/web/server';
-import type { OnModMailRequest, OnPostCreateRequest } from '@devvit/web/shared';
+import type {
+  OnAutomoderatorFilterPostRequest,
+  OnModMailRequest,
+  OnPostReportRequest,
+} from '@devvit/web/shared';
 import { classifyModmailLocal, parseCustomBuzzWords } from '../lib/modmailClassifier';
 import {
   analyzeModmailWithGpt,
-  analyzePostWithGpt,
   getGeminiApiKey,
   moderateContent,
 } from '../lib/ai';
 import { redisKeys, todayKey } from '../lib/redisKeys';
-import { normalizePostId, trimRecentZSet } from '../lib/redisQueue';
+import { trimRecentZSet } from '../lib/redisQueue';
+import { scanPost } from './scanPost';
 import type {
   ModmailShieldResult,
   PostShieldResult,
   ShieldMode,
-  ShieldPriority,
   InterceptMode,
 } from '../lib/types';
 
@@ -27,125 +30,26 @@ async function bumpStats(flagged: boolean): Promise<void> {
   }
 }
 
-function mapModerationToPriority(
-  topCategory: string,
-  topScore: number,
-  flagged: boolean
-): ShieldPriority {
-  if (!flagged && topScore < 0.3) return 'low';
-  const cat = topCategory.toLowerCase();
-  if (cat.includes('self-harm') || cat.includes('self_harm')) return 'critical';
-  if (cat.includes('violence') && cat.includes('graphic')) return 'critical';
-  if (cat.includes('harassment') || cat.includes('violence')) return 'important';
-  if (cat.includes('sexual') || cat.includes('hate')) return 'review';
-  if (topScore > 0.7) return 'important';
-  return 'review';
-}
-
-export async function handlePostCreate(
-  event: OnPostCreateRequest
-): Promise<void> {
-  const post = event.post;
-  if (!post?.id) {
-    console.warn('PostCreate: missing post id');
+/** User reported → post is in mod queue → scan once with Gemini */
+export async function handlePostReport(event: OnPostReportRequest): Promise<void> {
+  const postId = event.post?.id;
+  if (!postId) {
+    console.warn('PostReport: missing post id');
     return;
   }
+  await scanPost(postId, 'report', { reportReason: event.reason });
+}
 
-  const postId = normalizePostId(post.id);
-  const title = post.title ?? '';
-  const body = post.selftext ?? '';
-  const text = `${title}\n${body}`.trim();
-  const imageUrl =
-    post.isImage && post.url ? post.url : post.mediaUrls?.[0];
-
-  let category = 'safe';
-  let priority: ShieldPriority = 'low';
-  let confidence = 0;
-  let summary = 'No flags — safe content.';
-  let flagged = false;
-
-  const apiKey = await getGeminiApiKey();
-
-  if (apiKey && text) {
-    try {
-      const mod = await moderateContent(apiKey, text, imageUrl);
-      flagged = mod.flagged || mod.topScore >= 0.5;
-      category = mod.topCategory;
-      confidence = Math.round(mod.topScore * 100);
-      priority = mapModerationToPriority(mod.topCategory, mod.topScore, mod.flagged);
-
-      if (flagged) {
-        const gpt = await analyzePostWithGpt(
-          apiKey,
-          title,
-          body,
-          `${mod.topCategory} (${mod.topScore})`
-        );
-        category = gpt.category ?? category;
-        priority = gpt.priority ?? priority;
-        confidence = gpt.confidence ?? confidence;
-        summary = gpt.summary ?? summary;
-      }
-    } catch (err) {
-      console.error('PostCreate Gemini error:', err);
-      summary = 'Shield scan failed — review manually.';
-      priority = 'review';
-    }
-  } else if (!apiKey) {
-    console.warn('PostCreate: GEMINI_API_KEY / geminiApiKey not set');
-    summary = 'AI not configured — set Gemini key in .env or app settings.';
-    priority = 'review';
+/** Automod filtered to mod queue → scan once */
+export async function handleAutomoderatorFilterPost(
+  event: OnAutomoderatorFilterPostRequest
+): Promise<void> {
+  const postId = event.post?.id;
+  if (!postId) {
+    console.warn('AutomoderatorFilterPost: missing post id');
+    return;
   }
-
-  const interceptMode =
-    (await settings.get<InterceptMode>('interceptMode')) ?? 'audit';
-  let intercepted = false;
-
-  if (interceptMode === 'intercept' && priority === 'critical' && confidence >= 70) {
-    try {
-      const postFullId = (
-        post.id.startsWith('t3_') ? post.id : `t3_${post.id}`
-      ) as `t3_${string}`;
-      await reddit.remove(postFullId, false);
-      intercepted = true;
-      console.log(`ModShield intercepted and removed critical post ${post.id}`);
-    } catch (err) {
-      console.error('Failed to auto-remove post:', err);
-    }
-  }
-
-  if (priority !== 'low' || intercepted) {
-    flagged = true;
-  }
-
-  const result: PostShieldResult = {
-    postId,
-    title,
-    category,
-    priority,
-    confidence,
-    summary,
-    flagged,
-    intercepted,
-    handled: false,
-    at: Date.now(),
-  };
-  if (imageUrl) result.imageUrl = imageUrl;
-  if (body.trim()) result.originalContent = body.trim().slice(0, 4000);
-
-  await redis.set(redisKeys.post(postId), JSON.stringify(result));
-
-  if (flagged || priority !== 'low' || intercepted) {
-    await redis.zAdd(redisKeys.recentPosts, {
-      score: Date.now(),
-      member: postId,
-    });
-    await trimRecentZSet(redisKeys.recentPosts);
-    console.log(`ModShield queued post ${postId} for Protected Review`);
-  }
-
-  await bumpStats(flagged);
-  console.log(`ModShield post ${postId}: ${priority} — ${summary}`);
+  await scanPost(postId, 'automod', { automodReason: event.reason });
 }
 
 export async function handleModMail(event: OnModMailRequest): Promise<void> {
@@ -224,7 +128,7 @@ export async function handleModMail(event: OnModMailRequest): Promise<void> {
       await reddit.modMail.archiveConversation(conversationId);
       await reddit.modMail.reply({
         conversationId,
-        body: `ModShield intercepted: ${summary}\n\n[Thread archived — open Protected Review Quarantine to handle safely.]`,
+        body: `Hey mod, all good intercepted: ${summary}\n\n[Thread archived — open Protected Review to handle safely.]`,
         isInternal: true,
       });
       intercepted = true;
